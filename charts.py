@@ -238,3 +238,40 @@ def root_cause(df: pd.DataFrame, fy: str = None) -> pd.DataFrame:
 
 def fig_root_cause(tbl: pd.DataFrame, title: str):
     return px.pie(tbl, names="Root Cause", values="No of Incidents", title=title)
+
+
+# ---------------------------------------------------------------- Custom Chart Builder
+
+def build_custom_chart_data(df: pd.DataFrame, group_by: str, metric: str, fy: str = "All") -> pd.DataFrame:
+    """Build a grouped table for a user-defined chart.
+
+    group_by: a categorical column such as REGION, STATE, MONTH_NAME, etc.
+    metric: numeric field such as IS_INCIDENT, FATALITIES_TOTAL, INJURIES_TOTAL
+    fy: optional FY filter, or 'All' for all years.
+    """
+    if group_by not in df.columns:
+        raise ValueError(f"Column '{group_by}' not found in the dataset.")
+    if metric not in df.columns:
+        raise ValueError(f"Metric '{metric}' not found in the dataset.")
+
+    sub = df.copy()
+    if fy != "All":
+        sub = sub[sub["FINANCIAL_YEAR"] == fy]
+
+    tbl = sub.groupby(group_by, dropna=False)[metric].sum().reset_index(name="value")
+    tbl = tbl.sort_values("value", ascending=False)
+    return tbl.rename(columns={group_by: group_by})
+
+
+def build_custom_chart(tbl: pd.DataFrame, group_col: str, metric: str, chart_type: str = "bar"):
+    """Create a Plotly chart from a prebuilt custom dataset."""
+    chart_type = (chart_type or "bar").lower()
+    if chart_type == "bar":
+        return px.bar(tbl, x=group_col, y="value", title=f"{metric} by {group_col}")
+    if chart_type == "line":
+        return px.line(tbl, x=group_col, y="value", title=f"{metric} by {group_col}")
+    if chart_type == "pie":
+        return px.pie(tbl, names=group_col, values="value", title=f"{metric} by {group_col}")
+    if chart_type == "scatter":
+        return px.scatter(tbl, x=group_col, y="value", title=f"{metric} by {group_col}")
+    raise ValueError(f"Unsupported chart type: {chart_type}")

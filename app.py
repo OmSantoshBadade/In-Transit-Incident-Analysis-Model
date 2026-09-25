@@ -81,17 +81,37 @@ st.download_button(
 )
 
 tabs = st.tabs([
-    "Historic Trend", "Region Wise", "State Wise", "Territory Wise",
+    "Custom Chart", "Historic Trend", "Region Wise", "State Wise", "Territory Wise",
     "Monthly Breakup", "Week Days", "Date Wise", "Time Wise",
     "Type of Consumer", "Zone Wise", "FIR / DIR Status", "Root Cause",
 ])
 
 with tabs[0]:
+    st.markdown("<div class='section-header'>Custom chart builder</div>", unsafe_allow_html=True)
+    group_options = [
+        "REGION", "STATE", "TERRITORY", "MONTH_NAME", "WEEKDAY_NAME",
+        "TIME_BUCKET", "DIR STATUS", "FIR STATUS", "ROOT CAUSE-1",
+        "ROOT-CAUSE-2", "ROOT-CAUSE-3", "CONSUMER TYPE", "ZONE"
+    ]
+    metric_options = ["IS_INCIDENT", "FATALITIES_TOTAL", "INJURIES_TOTAL"]
+    custom_group = st.selectbox("Group by", [c for c in group_options if c in df.columns])
+    custom_metric = st.selectbox("Metric", metric_options)
+    custom_fy = st.selectbox("Financial year", ["All"] + sorted(df["FINANCIAL_YEAR"].dropna().unique().tolist()))
+    custom_chart_type = st.selectbox("Chart type", ["bar", "line", "pie", "scatter"])
+
+    try:
+        custom_tbl = ch.build_custom_chart_data(df, custom_group, custom_metric, custom_fy)
+        st.plotly_chart(ch.build_custom_chart(custom_tbl, custom_group, custom_metric, custom_chart_type), use_container_width=True)
+        st.dataframe(custom_tbl, use_container_width=True)
+    except ValueError as exc:
+        st.warning(str(exc))
+
+with tabs[1]:
     tbl = ch.historic_trend(df)
     st.plotly_chart(ch.fig_historic_trend(tbl), use_container_width=True)
     st.dataframe(tbl, use_container_width=True)
 
-with tabs[1]:
+with tabs[2]:
     for metric, label in [("IS_INCIDENT", "Incidents"), ("FATALITIES_TOTAL", "Fatalities"),
                            ("INJURIES_TOTAL", "Injuries")]:
         tbl = ch.region_wise(df, metric)
@@ -102,7 +122,7 @@ with tabs[1]:
     st.plotly_chart(combo_fig, use_container_width=True)
     st.dataframe(combo_tbl, use_container_width=True)
 
-with tabs[2]:
+with tabs[3]:
     for metric, label in [("IS_INCIDENT", "Incidents"), ("FATALITIES_TOTAL", "Fatalities"),
                            ("INJURIES_TOTAL", "Injuries")]:
         tbl = ch.state_wise(df, metric)
@@ -111,7 +131,7 @@ with tabs[2]:
                              use_container_width=True)
             st.dataframe(tbl, use_container_width=True)
 
-with tabs[3]:
+with tabs[4]:
     region_choice = st.selectbox("Region", sorted(df["REGION"].dropna().unique()))
     for metric, label in [("IS_INCIDENT", "Incidents"), ("FATALITIES_TOTAL", "Fatalities"),
                            ("INJURIES_TOTAL", "Injuries")]:
@@ -121,27 +141,27 @@ with tabs[3]:
                              use_container_width=True)
             st.dataframe(tbl, use_container_width=True)
 
-with tabs[4]:
+with tabs[5]:
     tbl = ch.monthly_breakup(df)
     st.plotly_chart(ch.fig_monthly_breakup(tbl), use_container_width=True)
     st.dataframe(tbl, use_container_width=True)
 
-with tabs[5]:
+with tabs[6]:
     tbl = ch.week_days(df)
     st.plotly_chart(ch.fig_week_days(tbl), use_container_width=True)
     st.dataframe(tbl, use_container_width=True)
 
-with tabs[6]:
+with tabs[7]:
     tbl = ch.date_wise(df)
     st.plotly_chart(ch.fig_date_wise(tbl), use_container_width=True)
     st.dataframe(tbl, use_container_width=True)
 
-with tabs[7]:
+with tabs[8]:
     tbl = ch.time_wise(df)
     st.plotly_chart(ch.fig_time_wise(tbl), use_container_width=True)
     st.dataframe(tbl, use_container_width=True)
 
-with tabs[8]:
+with tabs[9]:
     tbl = ch.type_of_consumer(df)
     if tbl.empty:
         st.warning("No CONSUMER TYPE data in this dataset — in-transit accidents don't carry a consumer record. This chart will populate once a dataset containing that column is uploaded.")
@@ -149,7 +169,7 @@ with tabs[8]:
         st.plotly_chart(ch.fig_type_of_consumer(tbl), use_container_width=True)
         st.dataframe(tbl, use_container_width=True)
 
-with tabs[9]:
+with tabs[10]:
     tbl = ch.zone_wise(df)
     if tbl.empty:
         st.warning("No ZONE column present in this dataset. This chart will populate once a dataset containing that column is uploaded.")
@@ -157,7 +177,7 @@ with tabs[9]:
         st.plotly_chart(ch.fig_zone_wise(tbl), use_container_width=True)
         st.dataframe(tbl, use_container_width=True)
 
-with tabs[10]:
+with tabs[11]:
     fir_tbl = ch.fir_status(df)
     dir_tbl = ch.dir_status(df)
     st.plotly_chart(ch.fig_fir_dir_status(fir_tbl, dir_tbl), use_container_width=True)
@@ -165,7 +185,7 @@ with tabs[10]:
     if not dir_tbl.empty:
         st.dataframe(dir_tbl, use_container_width=True)
 
-with tabs[11]:
+with tabs[12]:
     fy_choice = st.selectbox("Financial Year", sorted(df["FINANCIAL_YEAR"].dropna().unique()), key="rootcause_fy")
     tbl = ch.root_cause(df, fy_choice)
     if tbl.empty:

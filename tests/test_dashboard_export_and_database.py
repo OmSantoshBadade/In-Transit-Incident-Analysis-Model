@@ -3,6 +3,7 @@ import io
 import pandas as pd
 from openpyxl import load_workbook
 
+import charts
 from database import delete_all_data, summary_stats, upsert_dataframe
 from excel_export import build_workbook
 
@@ -58,3 +59,14 @@ def test_excel_report_has_summary_and_chart_tables(tmp_path):
 
     summary = workbook["Summary"]
     assert summary["A1"].value == "Dashboard Summary"
+
+
+def test_custom_chart_data_supports_metric_and_grouping():
+    df = _sample_dataframe()
+    custom_tbl = charts.build_custom_chart_data(df, "REGION", "IS_INCIDENT", "All")
+
+    assert list(custom_tbl.columns) == ["REGION", "value"]
+    assert custom_tbl["value"].sum() == 1
+
+    fig = charts.build_custom_chart(custom_tbl, "REGION", "IS_INCIDENT", "bar")
+    assert hasattr(fig, "data")
