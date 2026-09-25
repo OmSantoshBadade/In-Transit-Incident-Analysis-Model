@@ -13,79 +13,93 @@ application = app
 
 
 def _dashboard_html():
-    import pandas as pd
+    try:
+        import database as db
+        import charts as ch
 
-    import database as db
-    import charts as ch
+        df = db.load_all()
+        stats = db.summary_stats()
+        cards = []
+        cards.append(f"<div class='metric'><span>Total incidents</span><strong>{stats['total_incidents']}</strong></div>")
+        cards.append(f"<div class='metric'><span>Financial years</span><strong>{len(stats['years'])}</strong></div>")
+        cards.append(f"<div class='metric'><span>Regions</span><strong>{df['REGION'].dropna().nunique() if not df.empty else 0}</strong></div>")
 
-    df = db.load_all()
-    stats = db.summary_stats()
-    cards = []
-    cards.append(f"<div class='metric'><span>Total incidents</span><strong>{stats['total_incidents']}</strong></div>")
-    cards.append(f"<div class='metric'><span>Financial years</span><strong>{len(stats['years'])}</strong></div>")
-    cards.append(f"<div class='metric'><span>Regions</span><strong>{df['REGION'].dropna().nunique() if not df.empty else 0}</strong></div>")
+        if df.empty:
+            panels = "<div class='empty-state'>No incident data has been uploaded yet. Upload a dataset in the local Streamlit version or add data to the SQLite database to populate the dashboard.</div>"
+            charts_html = ""
+        else:
+            historic = ch.historic_trend(df)
+            region = ch.region_wise(df, "IS_INCIDENT")
+            fir = ch.fir_status(df)
+            dir_tbl = ch.dir_status(df)
+            combo_fig, _ = ch.fig_region_wise_combo(df)
 
-    if df.empty:
-        panels = "<div class='empty-state'>No incident data has been uploaded yet. Upload a dataset in the local Streamlit version or add data to the SQLite database to populate the dashboard.</div>"
-        charts_html = ""
-    else:
-        historic = ch.historic_trend(df)
-        region = ch.region_wise(df, "IS_INCIDENT")
-        fir = ch.fir_status(df)
-        dir_tbl = ch.dir_status(df)
-        combo_fig, combo_tbl = ch.fig_region_wise_combo(df)
+            charts_html = "".join([
+                f"<section class='panel'><h2>Historic Trend</h2>{ch.fig_historic_trend(historic).to_html(full_html=False, include_plotlyjs='cdn')}</section>",
+                f"<section class='panel'><h2>Region Wise Incidents</h2>{ch.fig_region_wise(region, 'Region wise breakup of LPG CP Incidents').to_html(full_html=False, include_plotlyjs='cdn')}</section>",
+                f"<section class='panel'><h2>Region-wise Combined Breakdown</h2>{combo_fig.to_html(full_html=False, include_plotlyjs='cdn')}</section>",
+                f"<section class='panel'><h2>FIR / DIR Status</h2>{ch.fig_fir_dir_status(fir, dir_tbl).to_html(full_html=False, include_plotlyjs='cdn')}</section>",
+            ])
 
-        charts_html = "".join([
-            f"<section class='panel'><h2>Historic Trend</h2>{ch.fig_historic_trend(historic).to_html(full_html=False, include_plotlyjs='cdn')}</section>",
-            f"<section class='panel'><h2>Region Wise Incidents</h2>{ch.fig_region_wise(region, 'Region wise breakup of LPG CP Incidents').to_html(full_html=False, include_plotlyjs='cdn')}</section>",
-            f"<section class='panel'><h2>Region-wise Combined Breakdown</h2>{combo_fig.to_html(full_html=False, include_plotlyjs='cdn')}</section>",
-            f"<section class='panel'><h2>FIR / DIR Status</h2>{ch.fig_fir_dir_status(fir, dir_tbl).to_html(full_html=False, include_plotlyjs='cdn')}</section>",
-        ])
+            summary_table = ""
+            if not region.empty:
+                summary_table = "<div class='table-wrap'><table><thead><tr><th>Region</th><th>Incidents</th></tr></thead><tbody>"
+                for _, row in region.head(10).iterrows():
+                    summary_table += f"<tr><td>{row['REGION']}</td><td>{int(row['IS_INCIDENT']) if 'IS_INCIDENT' in row else ''}</td></tr>"
+                summary_table += "</tbody></table></div>"
+            panels = f"<section class='panel'><h2>Summary</h2>{summary_table}</section>"
 
-        summary_table = ""
-        if not region.empty:
-            summary_table = "<div class='table-wrap'><table><thead><tr><th>Region</th><th>Incidents</th></tr></thead><tbody>"
-            for _, row in region.head(10).iterrows():
-                summary_table += f"<tr><td>{row['REGION']}</td><td>{int(row['IS_INCIDENT']) if 'IS_INCIDENT' in row else ''}</td></tr>"
-            summary_table += "</tbody></table></div>"
-        panels = f"<section class='panel'><h2>Summary</h2>{summary_table}</section>"
-
-    return f"""
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>LPG CP In-Transit Incident Dashboard</title>
-        <style>
-          body {{ font-family: Arial, sans-serif; margin: 0; background: #f4f7fb; color: #17212b; }}
-          .wrap {{ max-width: 1400px; margin: 0 auto; padding: 24px; }}
-          h1 {{ margin-bottom: 8px; }}
-          .subtitle {{ color: #516073; margin-bottom: 24px; }}
-          .metrics {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }}
-          .metric {{ background: white; border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }}
-          .metric span {{ display: block; color: #5c7088; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }}
-          .metric strong {{ display: block; font-size: 2rem; margin-top: 8px; }}
-          .panel {{ background: white; border-radius: 14px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }}
-          .panel h2 {{ margin-top: 0; }}
-          .empty-state {{ padding: 24px; background: #edf4ff; border-radius: 12px; color: #1d4f91; }}
-          .table-wrap {{ overflow-x: auto; }}
-          table {{ width: 100%; border-collapse: collapse; }}
-          th, td {{ padding: 10px 12px; border-bottom: 1px solid #e7edf5; text-align: left; }}
-          th {{ background: #f8fafc; }}
-          .chart {{ margin-top: 12px; }}
-        </style>
-      </head>
-      <body>
-        <div class="wrap">
-          <h1>LPG CP In-Transit Incident Dashboard</h1>
-          <div class="subtitle">Operational incident reporting for LPG CP in-transit accidents</div>
-          <div class="metrics">{''.join(cards)}</div>
-          {panels}
-          <div class="chart">{charts_html}</div>
-        </div>
-      </body>
-    </html>
-    """
+        return f"""
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>LPG CP In-Transit Incident Dashboard</title>
+            <style>
+              body {{ font-family: Arial, sans-serif; margin: 0; background: #f4f7fb; color: #17212b; }}
+              .wrap {{ max-width: 1400px; margin: 0 auto; padding: 24px; }}
+              h1 {{ margin-bottom: 8px; }}
+              .subtitle {{ color: #516073; margin-bottom: 24px; }}
+              .metrics {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }}
+              .metric {{ background: white; border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }}
+              .metric span {{ display: block; color: #5c7088; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }}
+              .metric strong {{ display: block; font-size: 2rem; margin-top: 8px; }}
+              .panel {{ background: white; border-radius: 14px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }}
+              .panel h2 {{ margin-top: 0; }}
+              .empty-state {{ padding: 24px; background: #edf4ff; border-radius: 12px; color: #1d4f91; }}
+              .table-wrap {{ overflow-x: auto; }}
+              table {{ width: 100%; border-collapse: collapse; }}
+              th, td {{ padding: 10px 12px; border-bottom: 1px solid #e7edf5; text-align: left; }}
+              th {{ background: #f8fafc; }}
+              .chart {{ margin-top: 12px; }}
+            </style>
+          </head>
+          <body>
+            <div class="wrap">
+              <h1>LPG CP In-Transit Incident Dashboard</h1>
+              <div class="subtitle">Operational incident reporting for LPG CP in-transit accidents</div>
+              <div class="metrics">{''.join(cards)}</div>
+              {panels}
+              <div class="chart">{charts_html}</div>
+            </div>
+          </body>
+        </html>
+        """
+    except Exception as exc:  # pragma: no cover - safety net for serverless environment
+        return f"""
+        <!doctype html>
+        <html>
+          <head><meta charset="utf-8" /><title>Dashboard Loading</title>
+          <style>body {{ font-family: Arial, sans-serif; margin: 2rem; color: #1d2a36; }} .box {{ max-width: 700px; padding: 24px; background: #f7f9fc; border-radius: 12px; }} h1 {{ margin-top: 0; }}</style></head>
+          <body>
+            <div class="box">
+              <h1>LPG CP In-Transit Incident Dashboard</h1>
+              <p>The dashboard is starting up. If the data source is not ready yet, this page will refresh automatically when the app is available.</p>
+              <p><small>Runtime status: {exc.__class__.__name__}</small></p>
+            </div>
+          </body>
+        </html>
+        """
 
 
 @app.route("/")
