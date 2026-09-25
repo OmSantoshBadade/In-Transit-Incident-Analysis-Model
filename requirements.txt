@@ -2,3 +2,5 @@ streamlit>=1.30
 pandas>=2.0
 openpyxl>=3.1
 plotly>=5.18
+Flask>=3.1
+gunicorn>=22.0

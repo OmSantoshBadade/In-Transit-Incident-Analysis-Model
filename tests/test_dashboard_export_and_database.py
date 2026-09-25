@@ -3,6 +3,7 @@ import io
 import pandas as pd
 from openpyxl import load_workbook
 
+import app
 import charts
 from database import delete_all_data, summary_stats, upsert_dataframe
 from excel_export import build_workbook
@@ -34,6 +35,13 @@ def _sample_dataframe():
             }
         ]
     )
+
+
+def test_app_exports_a_vercel_compatible_wsgi_app():
+    assert hasattr(app, "app")
+    client = app.app.test_client()
+    response = client.get("/")
+    assert response.status_code == 200
 
 
 def test_delete_all_data_removes_saved_records(tmp_path):
