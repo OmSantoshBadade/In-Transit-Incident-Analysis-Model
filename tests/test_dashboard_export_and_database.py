@@ -55,6 +55,14 @@ def test_delete_all_data_removes_saved_records(tmp_path):
     assert summary_stats(db_path)["total_incidents"] == 0
 
 
+def test_summary_stats_handles_missing_nested_db_directory(tmp_path):
+    db_path = tmp_path / "missing" / "nested" / "incident_data.db"
+
+    stats = summary_stats(db_path)
+
+    assert stats == {"total_incidents": 0, "years": [], "total_rows": 0}
+
+
 def test_excel_report_has_summary_and_chart_tables(tmp_path):
     df = _sample_dataframe()
     workbook_bytes = build_workbook(df)

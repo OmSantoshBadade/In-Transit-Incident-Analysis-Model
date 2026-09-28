@@ -6,18 +6,30 @@ Re-uploading the same file (or overlapping rows) safely upserts rather than
 duplicating.
 """
 
+import os
 import sqlite3
+import tempfile
+from pathlib import Path
+
 import pandas as pd
 
-DB_PATH = "incident_data.db"
 TABLE = "incidents"
 
 
-def get_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
-    return sqlite3.connect(db_path)
+def _resolve_db_path(db_path: str | os.PathLike[str] | None = None) -> str:
+    if db_path is None:
+        db_path = os.environ.get("INCIDENT_DB_PATH") or os.path.join(tempfile.gettempdir(), "incident_data.db")
+
+    path = Path(db_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
-def upsert_dataframe(df: pd.DataFrame, db_path: str = DB_PATH) -> int:
+def get_connection(db_path: str | os.PathLike[str] | None = None) -> sqlite3.Connection:
+    return sqlite3.connect(_resolve_db_path(db_path))
+
+
+def upsert_dataframe(df: pd.DataFrame, db_path: str | os.PathLike[str] | None = None) -> int:
     """Insert new rows / replace rows with a matching FIR NUMBER.
     Returns the number of rows written."""
     conn = get_connection(db_path)
@@ -52,7 +64,7 @@ def upsert_dataframe(df: pd.DataFrame, db_path: str = DB_PATH) -> int:
         conn.close()
 
 
-def load_all(db_path: str = DB_PATH) -> pd.DataFrame:
+def load_all(db_path: str | os.PathLike[str] | None = None) -> pd.DataFrame:
     conn = get_connection(db_path)
     try:
         try:
@@ -68,7 +80,7 @@ def load_all(db_path: str = DB_PATH) -> pd.DataFrame:
     return df
 
 
-def delete_all_data(db_path: str = DB_PATH) -> None:
+def delete_all_data(db_path: str | os.PathLike[str] | None = None) -> None:
     """Delete all stored incident rows and remove the SQLite table."""
     conn = get_connection(db_path)
     try:
@@ -78,12 +90,12 @@ def delete_all_data(db_path: str = DB_PATH) -> None:
         conn.close()
 
 
-def clear_all(db_path: str = DB_PATH) -> None:
+def clear_all(db_path: str | os.PathLike[str] | None = None) -> None:
     """Backward-compatible wrapper for resetting stored data."""
     delete_all_data(db_path)
 
 
-def summary_stats(db_path: str = DB_PATH) -> dict:
+def summary_stats(db_path: str | os.PathLike[str] | None = None) -> dict:
     df = load_all(db_path)
     if df.empty:
         return {"total_incidents": 0, "years": [], "total_rows": 0}
