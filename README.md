@@ -1,52 +1,137 @@
-# LPG CP In-Transit Incident Dashboard
+# LPG CP In-Transit Incident Analysis
 
-A clean rebuild that replaces the three overlapping prior attempts
-(`backend.zip`, `DEMO_2.zip`, `Incident-Analysis-main.zip`) with one
-project that explicitly reproduces every chart category from `Book1.xlsx`.
+<p align="center">
+  <strong>Turn incident spreadsheets into clear, interactive operational insight.</strong><br />
+  A lightweight dashboard for exploring in-transit LPG incident patterns, outcomes, and root causes.
+</p>
 
-## Run it
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white" alt="Python" /></a>
+  <a href="https://streamlit.io/"><img src="https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit&logoColor=white" alt="Streamlit" /></a>
+  <a href="https://plotly.com/python/"><img src="https://img.shields.io/badge/Charts-Plotly-3F4F75?logo=plotly&logoColor=white" alt="Plotly" /></a>
+  <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/Storage-SQLite-003B57?logo=sqlite&logoColor=white" alt="SQLite" /></a>
+</p>
 
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
+This project turns an Excel incident register into an interactive analysis workspace. Upload a workbook, let the application clean and enrich its rows, then explore incident counts, fatalities, injuries, timing, geography, FIR/DIR status, and reported root causes. A downloadable Excel report carries the analysis into a familiar, shareable format.
 
-Then open the local URL Streamlit prints, and upload
-`Retail_Intransit_Dataset.xlsx` in the sidebar.
+## What you can do
+
+- **Explore incident patterns** by financial year, region, state, territory, month, weekday, date, and time of day.
+- **Compare outcomes** using incident, fatality, and injury totals.
+- **Review case progress** with FIR filing turnaround and DIR status summaries.
+- **Inspect root causes** across the available root-cause fields.
+- **Build a custom chart** by choosing a supported grouping, metric, financial year, and chart type.
+- **Export an Excel report** containing summary tables and native Excel charts.
+- **Accumulate multiple uploads** in SQLite; rows with a matching FIR number are replaced, so repeated or overlapping uploads do not create duplicate FIR records.
 
 ## How it works
 
-- `data_loader.py` — parses the raw two-row-header Excel export, cleans
-  placeholder tokens (`-`, `NOT APPLICABLE`, etc.), parses dates/times, and
-  derives every field the charts need (Indian financial year, weekday,
-  time-of-day bucket, fatality/injury totals).
-- `database.py` — persists cleaned rows to a local SQLite file keyed by
-  `FIR NUMBER`, so uploading a new year's file **adds** to history instead
-  of overwriting it. Re-uploading the same file safely dedupes.
-- `charts.py` — one aggregation function + one Plotly figure per Book1
-  chart category. Explicit column mapping, no keyword-guessing.
-- `excel_export.py` — builds a downloadable `.xlsx` with **native**
-  openpyxl chart objects (not embedded images), matching Book1's own
-  chart types (Line / Bar / Bar3D / Pie3D) sheet-for-sheet.
-- `app.py` — the Streamlit UI: upload, persistent stats, one tab per
-  category, and the Excel download button.
+```mermaid
+flowchart LR
+    A[Excel workbook] --> B[Load and clean]
+    B --> C[SQLite incident history]
+    C --> D[Streamlit dashboard]
+    C --> E[Excel report]
+    C --> F[Flask dashboard route]
+```
 
-## Known data gaps (not bugs)
+1. **Load:** `data_loader.py` reads the source workbook’s two-row header layout.
+2. **Prepare:** placeholder values are normalized; incident dates, times, and FIR submission times are parsed; derived dimensions and total fatality/injury counts are added.
+3. **Store:** `database.py` upserts cleaned rows into a local SQLite database using `FIR NUMBER` as the record key.
+4. **Analyze:** `charts.py` supplies the aggregation tables and interactive Plotly charts used by the dashboard.
+5. **Export:** `excel_export.py` builds an `.xlsx` report with data tables and native openpyxl charts.
 
-`Retail_Intransit_Dataset.xlsx` covers **tank-lorry-in-transit accidents**
-only — a narrower slice than Book1's broader "LPG CP Incidents." Two Book1
-categories genuinely have no matching data in this file and will show a
-clear "no data" notice instead of being faked:
+Financial years use the Indian April–March convention. Time values are grouped into four buckets, and missing or not-applicable source values are treated as blank for analysis.
 
-- **Type of Consumer** — no `CONSUMER TYPE` values in this dataset (transit
-  accidents aren't tied to a specific consumer).
-- **Zone wise classification** — there is no `ZONE` column in this dataset
-  at all.
+## Dashboard views
 
-Both will populate automatically the moment a dataset containing those
-columns is uploaded — no code changes needed.
+| View | What it helps answer |
+| --- | --- |
+| Custom Chart | How does a chosen incident, fatality, or injury metric vary by a selected field? |
+| Historic Trend | How do incident totals compare across financial years? |
+| Region Wise | How do incidents and outcomes differ by region? |
+| State Wise | Which states contribute the most incidents or outcomes? |
+| Territory Wise | What does the breakdown look like within a selected region? |
+| Monthly Breakup | How do incidents vary by month across financial years? |
+| Week Days, Date Wise, Time Wise | When are incidents occurring? |
+| Type of Consumer, Zone Wise | What do these fields show when the uploaded data includes them? |
+| FIR / DIR Status | How quickly are FIRs filed, and what DIR statuses are recorded? |
+| Root Cause | Which reported causes appear in the selected financial year? |
 
-Also note: this dataset only contains **FY 2024-25** data. Multi-year trend
-charts (Historic Trend, year-over-year comparisons) will show a single
-year/bar until further years are uploaded — the database accumulates them
-over time as you add more files.
+The project also exposes a Flask route for serving a dashboard summary in WSGI environments. The interactive upload and full analysis workflow is provided by the local Streamlit interface.
+
+## Get started
+
+### Requirements
+
+- Python
+- The packages listed in [`requirements.txt`](requirements.txt)
+- An Excel workbook matching the source layout expected by the loader
+
+### Run locally
+
+Clone the repository and install its dependencies:
+
+```bash
+git clone https://github.com/OmSantoshBadade/In-Transit-Incident-Analysis-Model.git
+cd In-Transit-Incident-Analysis-Model
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+streamlit run app.py
+```
+
+On Windows PowerShell, activate the environment with:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Open the local address printed by Streamlit. Use **Data Management → Upload** in the sidebar to select an `.xlsx` workbook. The repository includes [`Demo_Retail_Intransit_Dataset_2015_2025.xlsx`](Demo_Retail_Intransit_Dataset_2015_2025.xlsx) as a demo input.
+
+After data is loaded, choose a dashboard view or select **Download Excel report with charts and tables**.
+
+## Input data and interpretation
+
+The loader expects the workbook’s actual field names on its second row, with data beginning on the next row. It requires a `FIR NUMBER` column for upserts and uses fields such as incident date/time, region, state, territory, FIR/DIR status, and root-cause columns when present.
+
+Some views depend on optional columns. If `CONSUMER TYPE` has no usable values, or the workbook does not include `ZONE`, those views show a no-data message instead of inventing results. Multi-year comparisons become informative as records from additional financial years are added.
+
+This is an operational analysis aid. Results reflect the data supplied in the workbook and the project’s cleaning and grouping rules; review source records before using summaries for formal reporting or decisions.
+
+## Data storage
+
+By default, SQLite stores the database at the system temporary directory as `incident_data.db`. Set `INCIDENT_DB_PATH` to choose another location:
+
+```bash
+export INCIDENT_DB_PATH="$PWD/data/incident_data.db"
+streamlit run app.py
+```
+
+Create the chosen parent directory if needed; the application creates it automatically. The sidebar’s **Delete all stored data** action permanently clears the local incident history after you confirm. Back up the database file if you need to preserve accumulated uploads.
+
+For hosted deployments, confirm that the chosen storage location persists between application restarts and instances. The repository includes a Flask WSGI entrypoint (`app:app`); the Streamlit interface is started with `streamlit run app.py`.
+
+## Project structure
+
+| File | Responsibility |
+| --- | --- |
+| `app.py` | Streamlit dashboard and Flask WSGI entrypoint |
+| `data_loader.py` | Excel parsing, cleaning, and derived analysis fields |
+| `database.py` | SQLite storage, FIR-number upserts, and summary statistics |
+| `charts.py` | Analysis tables and Plotly chart builders |
+| `excel_export.py` | Downloadable Excel workbook and native charts |
+| `tests/` | Tests for database behavior, export, and dashboard functionality |
+| `Demo_Retail_Intransit_Dataset_2015_2025.xlsx` | Demo workbook |
+
+## Run the tests
+
+Install the project requirements, then run:
+
+```bash
+python -m pytest
+```
+
+## Built with
+
+[Streamlit](https://streamlit.io/) · [Pandas](https://pandas.pydata.org/) · [Plotly](https://plotly.com/python/) · [SQLite](https://www.sqlite.org/) · [openpyxl](https://openpyxl.readthedocs.io/) · [Flask](https://flask.palletsprojects.com/)
